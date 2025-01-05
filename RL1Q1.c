@@ -85,6 +85,7 @@ void escreverArquivo(const char *caminho, const char *data) {
 
   fprintf(arquivo, "%s", data);
   fclose(arquivo);
+  printf("Arquivo de saída atualizado com sucesso!\n");
 }
 
 int main() {
