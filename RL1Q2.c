@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,97 +13,76 @@ typedef struct {
 
 pilha fila;
 
-// Verifica se a pilha está vazia
 int isEmpty(pilha *fila) {
 		return fila->topo == 0;
 }
 
-// Verifica se a pilha está cheia
 int isFull(pilha *fila) {
 		return fila->topo == MAX_NOMES;
 }
 
-// Empilha um elemento na pilha e registra no log
-void push(pilha *fila, char *nome, char *log) {
+void push(pilha *fila, const char *nome, char *log) {
 		if (isFull(fila)) {
 				fprintf(stderr, "Erro: Pilha cheia\n");
 				return;
 		}
 
-		memcpy(&fila->valores[fila->topo * MAX_TAMANHO_NOME], nome, MAX_TAMANHO_NOME);
-		fila->topo++;
+		strncpy(&fila->valores[fila->topo * MAX_TAMANHO_NOME], nome, MAX_TAMANHO_NOME);
+		fila->valores[(fila->topo + 1) * MAX_TAMANHO_NOME - 1] = '\0'; // Garantir nulo
 
-		// Registra a operação de push no log
 		if (log) {
 				char temp[MAX_TAMANHO_NOME + 10];
-				sprintf(temp, "push-%s ", nome);
+				snprintf(temp, sizeof(temp), "push-%s ", nome);
 				strcat(log, temp);
 		}
+		fila->topo++;
 }
 
-// Desempilha um elemento da pilha e registra no log
-char *pop(pilha *fila, char *log) {
+char *pop(pilha *fila) {
 		if (isEmpty(fila)) {
 				fprintf(stderr, "Erro: Pilha vazia\n");
 				return NULL;
 		}
-
 		fila->topo--;
-
-		// Registra a operação de pop no log
-		if (log) {
-				strcat(log, "1x-pop ");
-		}
-
 		return &fila->valores[fila->topo * MAX_TAMANHO_NOME];
 }
 
-// Realiza a ordenação com rastreamento das operações
-void ordenacao(pilha *fila, char *nome, char *log) {
+void ordenacao(pilha *fila, const char *nome, char *log) {
 		pilha filaAux;
 		filaAux.valores = malloc(sizeof(char) * MAX_NOMES * MAX_TAMANHO_NOME);
 		filaAux.topo = 0;
 
 		int popCount = 0;
-
-		// Remove elementos da pilha principal até encontrar a posição correta
 		while (!isEmpty(fila)) {
-				char *nomeAux = pop(fila, NULL); // Pop sem log
-				push(&filaAux, nomeAux, NULL);  // Push na auxiliar sem log
-				popCount++;
-
+				char *nomeAux = pop(fila);
 				if (strcmp(nomeAux, nome) <= 0) {
-						break; // Parar ao encontrar posição correta
+						push(fila, nomeAux, NULL);
+						break;
 				}
+				push(&filaAux, nomeAux, NULL);
+				popCount++;
 		}
 
-		// Registra o número total de pops consecutivos no log
-		if (popCount > 0) {
+		if (log && popCount > 0) {
 				char temp[20];
-				sprintf(temp, "%dx-pop ", popCount);
+				snprintf(temp, sizeof(temp), "%dx-pop ", popCount);
 				strcat(log, temp);
 		}
-
-		// Insere o novo elemento na posição correta
 		push(fila, nome, log);
 
-		// Reempilha os elementos da auxiliar de volta para a principal
 		while (!isEmpty(&filaAux)) {
-				char *nomeAux = pop(&filaAux, NULL); // Pop sem log
-				push(fila, nomeAux, NULL);          // Push na principal sem log
+				push(fila, pop(&filaAux), log);
 		}
 
 		free(filaAux.valores);
 }
 
-// Inicializa a pilha
 void inicializar() {
 		fila.valores = malloc(sizeof(char) * MAX_NOMES * MAX_TAMANHO_NOME);
 		fila.topo = 0;
 }
 
-// Lê o conteúdo de um arquivo
-char *lerArquivo(char *caminho) {
+char *lerArquivo(const char *caminho) {
 		FILE *arquivo = fopen(caminho, "r");
 		if (!arquivo) {
 				perror("Erro ao abrir o arquivo de entrada");
@@ -121,8 +101,7 @@ char *lerArquivo(char *caminho) {
 		return buffer;
 }
 
-// Escreve o conteúdo no arquivo de saída
-void escreverArquivo(char *caminho, char *data) {
+void escreverArquivo(const char *caminho, const char *data) {
 		FILE *arquivo = fopen(caminho, "w");
 		if (!arquivo) {
 				perror("Erro ao abrir o arquivo de saída");
@@ -136,8 +115,8 @@ void escreverArquivo(char *caminho, char *data) {
 int main() {
 		inicializar();
 
-		char *inputCaminho = "./L1Q2.in";
-		char *outputCaminho = "./L1Q2.out";
+		const char *inputCaminho = "./L1Q2.in";
+		const char *outputCaminho = "./L1Q2.out";
 
 		char *conteudo = lerArquivo(inputCaminho);
 
@@ -150,7 +129,7 @@ int main() {
 				linha = strtok(NULL, "\r\n");
 		}
 
-		char output[50000] = ""; // Buffer para a saída final
+		char output[500000] = ""; // Buffer maior
 
 		for (int i = 0; i < linhasCount; i++) {
 				char *nomes[MAX_NOMES];
@@ -162,11 +141,17 @@ int main() {
 						token = strtok(NULL, " ");
 				}
 
-				// Log para operações da linha atual
-				char log[5000] = "";
+				char log[50000] = ""; // Buffer maior
 
 				for (int j = 0; j < nomesCount; j++) {
 						ordenacao(&fila, nomes[j], log);
+				}
+
+				for (int j = 50000; j >= 0; j--) {
+					if (log[j] == 32) {
+						log[j] = '\0';
+						break;
+					}
 				}
 
 				strcat(output, log);
@@ -181,7 +166,7 @@ int main() {
 
 		escreverArquivo(outputCaminho, output);
 
-		printf("Resultado gerado:\n%s", output); // Exibe o resultado no terminal
+		printf("Resultado gerado:\n%s", output);
 
 		free(fila.valores);
 		free(conteudo);
